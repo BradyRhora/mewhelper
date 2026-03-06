@@ -1,0 +1,53 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../app/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  DITTO
+}
+
+enum Sexuality {
+  STRAIGHT
+  GAY
+}
+
+model Cat {
+  id        String   @id @default(cuid())
+  name      String?
+  gender    Gender?
+  sexuality Sexuality?
+  retired   Boolean  @default(false)
+
+  parent1   Cat?     @relation("ParentOf1", fields: [parent1Id], references: [id])
+  parent1Id String?
+  parent2   Cat?     @relation("ParentOf2", fields: [parent2Id], references: [id])
+  parent2Id String?
+
+  ParentOf1 Cat[]     @relation("ParentOf1")  
+  ParentOf2 Cat[]     @relation("ParentOf2")
+
+  str       Int @default(5)
+  dex       Int @default(5)
+  con       Int @default(5)
+  int       Int @default(5)
+  spd       Int @default(5)
+  cha       Int @default(5)
+  luk       Int @default(5)
+}
