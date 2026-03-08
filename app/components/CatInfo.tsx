@@ -1,10 +1,11 @@
 import Image from "next/image";
 import { DefaultInput, DefaultSubMenu } from "../lib/themes";
 import StatUpDown from "./StatUpDown";
-import { useContext, useEffect, useRef } from "react";
+import { useContext, useRef } from "react";
 import { SelectedCatContext } from "./MewHelper";
-import { Cat, Gender } from "../generated/prisma/client";
+import { Cat, Gender, Sexuality } from "../generated/prisma/client";
 import { FaTrashAlt } from "react-icons/fa";
+import { GetTotalStats } from "../lib/helper";
 
 interface CatInfoProps {
     updateCatList: () => void,
@@ -13,7 +14,6 @@ interface CatInfoProps {
 export default function CatInfo({updateCatList} : CatInfoProps) {
     const [selectedCat, setSelectedCat] = useContext(SelectedCatContext);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
     const formRef = useRef<HTMLFormElement>(null);
 
     function formChanged() {
@@ -33,10 +33,11 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
     
         const newCatData : Cat = {
             id: id,
+            userId: '0',
             name: data['Name'] as string,
             retired: data['Retired'] == 'on',
             gender: data['Gender'] as Gender,
-            sexuality: "STRAIGHT", // *
+            sexuality: data['Sexuality'] as Sexuality,
             str: Number(data['str']),
             dex: Number(data['dex']),
             con: Number(data['con']),
@@ -47,17 +48,19 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
             parent1Id: null, // *
             parent2Id: null  // *
         }
+
+        setSelectedCat(newCatData);
         
-        fetch('/api/cats', {
-            method:'POST',
+        fetch('/api/cat', {
+            method:'PUT',
             body: JSON.stringify(newCatData)
-        })
+        }).then(() => updateCatList())
     }
 
     function deleteCat() {
         if (!selectedCat) return;
 
-        fetch('/api/cats?id=' + selectedCat.id, {
+        fetch('/api/cat?id=' + selectedCat.id, {
             method:'DELETE'
         })
 
@@ -65,19 +68,8 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
         setSelectedCat(undefined);
     }
 
-    function sumStats() {
-        if (!selectedCat) return;
-
-        return selectedCat.str + selectedCat.dex + selectedCat.con + selectedCat.int + selectedCat.spd + selectedCat.cha + selectedCat.luk;
-    }
-
-    useEffect(() => {
-        console.log('Selected cat updated!');
-        console.log(selectedCat);
-    }, [selectedCat])
-
-    return <form key={selectedCat?.id} ref={formRef} onChange={formChanged} onInput={formChanged} className={`p-1 md:p-2 rounded ${DefaultSubMenu} flex flex-col md:max-w-150 m-auto`}>
-            {selectedCat ? <>
+    return selectedCat ? (
+    <form key={selectedCat?.id} ref={formRef} onChange={formChanged} onInput={formChanged} className={`p-1 md:p-2 mb-2 rounded ${DefaultSubMenu} flex flex-col md:max-w-150 m-auto`}>    
             <div className="flex flex-row">
                 <div className="flex flex-1 flex-col md:flex-row items-center md:items-start">
                     <Image 
@@ -89,14 +81,20 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
                     <div className="flex flex-col w-full mt-2">
                         <input name="Name" type="text" placeholder="Name" className={`text-2xl rounded border ${DefaultInput}`} defaultValue={selectedCat.name ?? ""} onChange={formChanged}/>
                         <label>
-                            <input name="Retired" type="checkbox" className="w-4 h-4 mr-1" defaultChecked={selectedCat.retired ?? false} onChange={formChanged}/>
+                            <input name="Retired" type="checkbox" className="w-4 h-4 mr-1 cursor-pointer" defaultChecked={selectedCat.retired ?? false} onChange={formChanged}/>
                             <span className="text-xl">Retired</span>
                         </label>
                         <label>
-                            <select name="Gender" className="*:bg-gray-500" defaultValue={selectedCat.gender ?? "MALE"} onChange={formChanged}>
+                            <select name="Gender" className="*:bg-gray-500 cursor-pointer *:cursor-pointer" defaultValue={selectedCat.gender ?? "MALE"} onChange={formChanged}>
                                 <option value="MALE">Male</option>
                                 <option value="FEMALE">Female</option>
                                 <option value="DITTO">Ditto</option>
+                            </select>
+                        </label>
+                        <label>
+                            <select name="Sexuality" className="*:bg-gray-500 cursor-pointer *:cursor-pointer" defaultValue={selectedCat.sexuality ?? "STRAIGHT"} onChange={formChanged}>
+                                <option value="STRAIGHT">Straight</option>
+                                <option value="GAY">Gay</option>
                             </select>
                         </label>
                     </div>
@@ -105,7 +103,7 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
                 <FaTrashAlt onClick={deleteCat} size={24} className="m-3 text-red-400 hover:text-red-300 cursor-pointer"/>
             </div>
             <div className='mt-2 bg-gray-800'>
-                <h2 className="text-2xl rounded-2xl">Stats - Total: {sumStats()}</h2>
+                <h2 className="text-2xl rounded-2xl">Stats - Total: {GetTotalStats(selectedCat)}</h2>
                 <div className="flex flex-row">
                     <StatUpDown name="str" startValue={selectedCat.str} updateForm={formChanged}/>
                     <StatUpDown name="dex" startValue={selectedCat.dex} updateForm={formChanged}/>
@@ -116,6 +114,6 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
                     <StatUpDown name="luk" startValue={selectedCat.luk} updateForm={formChanged}/>
                 </div>
             </div>
-            </> : <></>}
         </form>
+        ) : <></>
 }

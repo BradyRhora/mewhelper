@@ -1,14 +1,13 @@
 "use client"
-import { DefaultButton } from "../lib/themes";
+import { DefaultButton, DefaultHoverable } from "../lib/themes";
 import CatIcon from "./CatIcon";
-import { useContext, useEffect, useCallback } from "react";
+import { useContext, useCallback } from "react";
 import { SelectedCatContext } from "./MewHelper";
 import { Cat } from "../generated/prisma/client";
-import { CatListInfo } from "../lib/db/prisma";
 
 interface CatListProps {
-    catList: CatListInfo[],
-    updateCatList: () => void,
+    catList: Cat[],
+    updateCatList: () => Promise<void>,
 }
 
 export default function CatList({catList, updateCatList} : CatListProps) {
@@ -17,7 +16,7 @@ export default function CatList({catList, updateCatList} : CatListProps) {
     const selectCat = useCallback((index: number) => {
         if (catList.length <= index) return;
 
-        fetch('/api/cats?id=' + catList[index].id)
+        fetch('/api/cat?id=' + catList[index].id)
         .then((res) => res.json())
         .then((data : Cat) => {
             setSelectedCat(data);
@@ -25,21 +24,23 @@ export default function CatList({catList, updateCatList} : CatListProps) {
     }, [catList, setSelectedCat]);
 
     function createNewCat() {
-        fetch('/api/cats', {
+        fetch('/api/cat', {
             method: 'POST'
-        })
-
-        updateCatList();
+        }).then(() => {
+            updateCatList().then(() => {
+                selectCat(catList.length - 1);
+            })
+        });
     }
 
     return <>
-    <div className="flex flex-row overflow-x-auto pb-1">
+    <div className="flex flex-row overflow-x-auto pb-1 mb-2">
         {catList.map((cat, idx) => {
-            return <div key={cat.id} onClick={() => selectCat(idx)} className={selectedCat && selectedCat.id == cat.id ? "border-white border" : "border-transparent border"}>
-                <CatIcon cat={cat}/>
+            return <div key={cat.id} onClick={() => selectCat(idx)} className={`cursor-pointer`}>
+                <CatIcon cat={cat} className={`w-20 md:w-40 m-0.5 p-1 border rounded-md ${DefaultHoverable} ${(selectedCat && selectedCat.id == cat.id ? "border-blue-500" : "")}`}/>
             </div>
         })}
     </div>
-    <button className={`w-30 ${DefaultButton}`} onClick={createNewCat}>New Cat..</button>
+    <button className={`w-30 ${DefaultButton} mb-2 select-none`} onClick={createNewCat}>New Cat..</button>
     </>;
 }

@@ -12,8 +12,7 @@ datasource db {
 
 model User {
   id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
+  cats      Cat[]
   createdAt DateTime @default(now())
 }
 
@@ -30,6 +29,10 @@ enum Sexuality {
 
 model Cat {
   id        String   @id @default(cuid())
+
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+
   name      String?
   gender    Gender?
   sexuality Sexuality?

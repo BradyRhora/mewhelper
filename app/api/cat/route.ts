@@ -1,4 +1,4 @@
-import { CatExists, DeleteCat, GetCat, NewCat, UpdateCat } from "@/app/lib/db/prisma";
+import { CatExists, DeleteCat, GetCat, CreateCat, UpdateCat, EnsureUser } from "@/app/lib/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -13,19 +13,23 @@ export async function GET(req: NextRequest) {
     }
 }
 
-export async function POST(req: NextRequest) {
-        const data = await req.json().catch(() => null); // Gracefully handle JSON parsing errors
+export async function PUT(req: NextRequest) {
+    const userId = await EnsureUser();
+    const data = await req.json();
 
-        if (!data) {
-            const cat = NewCat();
-            return NextResponse.json(cat);
-        }
+    if (data && await CatExists(data.id)) {
+        data.userId = userId;
+        await UpdateCat(data);
+        return NextResponse.json({}, {status:200});
+    }
+    else return NextResponse.json({error: `Cat with id: '${data.id}' not found.`}, {status: 400});    
+}
 
-        if (await CatExists(data.id)) { // is this necessary or can we just check the update for errors
-            await UpdateCat(data);
-            return NextResponse.json({}, {status:200});
-        }
-        else return NextResponse.json({error: `Cat with id: '${data.id}' not found.`}, {status: 400});    
+export async function POST() {
+    const userId = await EnsureUser();        
+    
+    if (userId) return NextResponse.json(CreateCat(userId));
+    else return NextResponse.json({error:"Server error"},{status:500});
 }
 
 export async function DELETE(req: NextRequest) {
