@@ -10,5 +10,14 @@ interface CatImageProps {
 }
 
 export default function CatImage({cat, width, height, alt, className} : CatImageProps) {
-    return <Image loading="eager" unoptimized={true} width={width} height={height} src={(cat.imagePath && cat.imagePath != "") ? cat.imagePath : '/images/cats/cat.png'} alt={alt ?? "Image of a cat"} className={`${className}`} style={{width:width, height:height}}/>
+    return <Image 
+            loading="eager"
+            unoptimized={true}
+            width={width}
+            height={height}
+            src={`/api/cat/image?cat=${cat.id}`}
+            alt={alt ?? "Image of a cat"}
+            className={`${className}`}
+            style={{width:width, height:height}}
+        />
 }

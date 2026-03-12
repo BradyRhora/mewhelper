@@ -1,8 +1,10 @@
 import { CatExistsAndOwnedBy, EnsureUser, GetCat, prisma } from "@/app/lib/db/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { GetCatPic, GetFullCatPicPath, SetCatPic } from "@/app/lib/server/image";
+
 import fs from "fs";
-import { fileExists, GetCatPic, GenerateCatPicPath } from "@/app/lib/server/image";
-import { ResizeImage } from "@/app/lib/server/image";
+
+export const dynamic = "force-dynamic"
 
 export async function GET(req: NextRequest) {
     const userId = await EnsureUser();
@@ -13,8 +15,15 @@ export async function GET(req: NextRequest) {
     if (!cat) return NextResponse.json({error:"Cat does not exist"}, {status:400});
     if (cat.userId != userId) return NextResponse.json({error:""}, {status:403});
 
-    const path = await GetCatPic(cat.id);
-    return NextResponse.json({src:path}, {status:200});
+    const file = await GetCatPic(cat.id);
+    const headers = {
+        "Content-Type": "image/png",
+        "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+        "Pragma": "no-cache",
+        "Expires": "0"
+    }
+    if (file) return new NextResponse(file, {headers: headers});
+    else return NextResponse.redirect(new URL("/images/cats/cat.png", req.url), {headers: headers})
 }
 
 export async function POST(req: NextRequest) {
@@ -27,23 +36,10 @@ export async function POST(req: NextRequest) {
     if (file && catId && await CatExistsAndOwnedBy(catId, userId)) {
         const cat = await prisma.cat.findFirstOrThrow({where:{id:catId}});
 
-        if (cat?.imagePath && await fileExists('public'+cat.imagePath)) {
-            await fs.promises.rm('public'+cat.imagePath);
-        }
+        const picUrl = await SetCatPic(cat.id, file);
 
-        // TODO: Should move this logic into lib/server/image
-        const bytes = await file.arrayBuffer();
-        const buffer = Buffer.from(bytes);
-        const sizedBuffer = await ResizeImage(buffer, 200);
-        if (sizedBuffer) {
-            const picPath = GenerateCatPicPath(catId);
-            await fs.promises.writeFile('public'+picPath, sizedBuffer);
-            await prisma.cat.update({data:{imagePath:picPath}, where:{id:catId}});
-            return NextResponse.json({src:picPath}, {status:200});
-        } else {
-            return NextResponse.json({error:"Image processing failed"}, {status:500});
-        }
-        
+        if (picUrl) return NextResponse.json({src:picUrl}, {status:200});
+        else return NextResponse.json({error:"Error processing image"}, {status:500});
     }
     else return NextResponse.json({error:""}, {status:400});
 }
@@ -54,14 +50,10 @@ export async function DELETE(req: NextRequest) {
     const catId = data.catId;
 
     if (await CatExistsAndOwnedBy(catId, userId)) {
-        const cat = await prisma.cat.findFirstOrThrow({where:{id:catId}});
-        
-        const picPath = cat.imagePath;
 
-        if (await fileExists('public'+picPath)) {
-            await fs.promises.rm('public'+picPath);
-            const updatedCat = await prisma.cat.update({where:{id:catId}, data:{imagePath:null}});
-            return NextResponse.json({cat:updatedCat},{status:200});
+        if (await GetCatPic(catId)) {
+            await fs.promises.rm(GetFullCatPicPath(catId));
+            return new NextResponse(null,{status:200});
         }
 
         return new NextResponse(null, {status:204})
