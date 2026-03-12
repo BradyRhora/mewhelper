@@ -7,15 +7,12 @@ import CatHighest from "./CatHighest";
 import CatTable from "./CatTable";
 
 export const SelectedCatContext = createContext<[Cat | undefined, React.Dispatch<React.SetStateAction<Cat | undefined>>]>([undefined, () => {}]);
+export const ReloadCounterContext = createContext<[number, React.Dispatch<React.SetStateAction<number>>]>([0, () => {}]);
 
 export default function MewHelper() {
     const [selectedCat, setSelectedCat] = useState<Cat|undefined>(undefined);
+    const [reloadCounter, setReloadCounter] = useState<number>(0);
     const [catList, setCatList] = useState<Cat[]>([]);
-
-    // const getCatById = useCallback((id: string) => {
-    //     const cat = catList.filter((c) => c.id == id);
-    //     if (cat.length > 0) return cat[0];
-    // }, [catList]);
 
     const updateCatList = useCallback(async (newCat = false) => {
         const res = await fetch('/api/catlist');
@@ -25,8 +22,10 @@ export default function MewHelper() {
             setSelectedCat(data[data.length-1]);
         }
 
+        setReloadCounter(reloadCounter+1);
+
         return data;
-    }, []);
+    }, [reloadCounter]);
 
     useEffect(() => {
         async function loadCats() {
@@ -40,10 +39,13 @@ export default function MewHelper() {
 
     return <div>
         <SelectedCatContext.Provider value={[selectedCat, setSelectedCat]}>
+        <ReloadCounterContext.Provider value={[reloadCounter, setReloadCounter]}>
             <CatList catList={catList} updateCatList={updateCatList}/>
             <CatInfo updateCatList={updateCatList}/>
             <CatHighest catList={catList}/>
             <CatTable catList={catList} updateCatList={updateCatList}/>
+        </ReloadCounterContext.Provider>
         </SelectedCatContext.Provider>
+        
     </div>;
 }

@@ -1,7 +1,7 @@
 import { DefaultInput, DefaultSubMenu } from "../lib/themes";
 import StatUpDown from "./StatUpDown";
 import { ClipboardEvent, useContext, useRef } from "react";
-import { SelectedCatContext } from "./MewHelper";
+import { ReloadCounterContext, SelectedCatContext } from "./MewHelper";
 import { Cat, Gender, Sexuality } from "../generated/prisma/client";
 import { FaTrashAlt } from "react-icons/fa";
 import { GetTotalStats } from "../lib/helper";
@@ -14,12 +14,13 @@ interface CatInfoProps {
 
 export default function CatInfo({updateCatList} : CatInfoProps) {
     const [selectedCat, setSelectedCat] = useContext(SelectedCatContext);
+    const [reloadCounter, ] = useContext(ReloadCounterContext);
+
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
     const imageUploadRef = useRef<HTMLInputElement>(null);
     const imageDeleteRef = useRef<HTMLButtonElement>(null);
     const imageRef = useRef<HTMLImageElement>(null);
-    const newImageSrcRef = useRef<HTMLInputElement>(null);
 
     function formChanged() {
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -35,13 +36,10 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
 
         const formData = new FormData(formRef.current);
         const data = Object.fromEntries(formData.entries());
-
-        console.log("updating str to " + data['str']);
     
         const newCatData : Cat = {
             id: id,
             userId: '0', // placeholder
-            imagePath: newImageSrcRef.current?.value ?? selectedCat?.imagePath ?? null,
             name: data['Name'] as string,
             retired: data['Retired'] == 'on',
             gender: data['Gender'] as Gender,
@@ -79,15 +77,12 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
     async function deleteCatImage() {
         if (!selectedCat) return;
         
-        const res = await fetch("/api/cat/image", {
+        await fetch("/api/cat/image", {
             method: "DELETE",
             body: JSON.stringify({catId: selectedCat.id})
         })
-        const data = await res.json();
-        const cat = data.cat;
 
         await updateCatList();
-        if (cat) setSelectedCat(cat);
     }
 
     function selectCatImage() {
@@ -103,12 +98,7 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
         
         const file = input.files[0];
 
-        const src = await UploadCatImage(file, selectedCat.id);
-        if (newImageSrcRef.current) {
-            newImageSrcRef.current.value = src;
-            pushCatUpdates(selectedCat.id);
-            await updateCatList();
-        }
+        await UploadCatImage(file, selectedCat.id);
     }
 
     function showImageDeleteButton(visible: boolean) {
@@ -126,13 +116,7 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
                 event.stopPropagation();
 
                 const pasteFile = data.files[0];
-                const src = await UploadCatImage(pasteFile, selectedCat.id);
-
-                if (newImageSrcRef.current) {
-                    newImageSrcRef.current.value = src;
-                    pushCatUpdates(selectedCat.id);
-                    updateCatList();
-                }
+                await UploadCatImage(pasteFile, selectedCat.id);
             }
         }
     }
@@ -142,8 +126,8 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
             <div className="flex flex-row">
                 <div className="flex flex-1 flex-col md:flex-row items-center md:items-start">
                     <input ref={imageUploadRef} type="file" accept="image/png, image/jpeg" className="hidden" onChange={uploadCatImage}></input>
-                    <input ref={newImageSrcRef} type="text" className="hidden"></input>
-                    <div onClick={selectCatImage} onMouseEnter={() => showImageDeleteButton(true)} onMouseLeave={() => showImageDeleteButton(false)} className="relative md:mr-2">
+                    {/*<input ref={newImageSrcRef} type="text" className="hidden"></input>*/}
+                    <div key={`${selectedCat.id}-${reloadCounter}`} onClick={selectCatImage} onMouseEnter={() => showImageDeleteButton(true)} onMouseLeave={() => showImageDeleteButton(false)} className="relative md:mr-2">
                         <CatImage
                             cat={selectedCat} width={300} height={200}
                             alt={(selectedCat.name ? selectedCat.name : "cat") + "'s portrait"}

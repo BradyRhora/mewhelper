@@ -1,5 +1,5 @@
 import { useContext } from "react";
-import { SelectedCatContext } from "./MewHelper";
+import { ReloadCounterContext, SelectedCatContext } from "./MewHelper";
 import { Cat } from "../generated/prisma/client";
 import CatIcon from "./CatIcon";
 import { DefaultHoverable } from "../lib/themes";
@@ -11,6 +11,7 @@ interface CatHelperProps {
 
 export default function CatHighest({catList} : CatHelperProps) {
     const [selectedCat, setSelectedCat] = useContext(SelectedCatContext);
+    const [reloadCounter, ] = useContext(ReloadCounterContext);
 
     function getHighest(stat : keyof Cat) {
         if (catList.length == 0) return null;
@@ -33,7 +34,7 @@ export default function CatHighest({catList} : CatHelperProps) {
         {stats.map((s) => {
             const highest = getHighest(s as keyof Cat);
 
-            return (<div key={s} className="mx-1" onClick={() => highest && setSelectedCat(highest)}>
+            return (<div key={`${s}-${reloadCounter}`} className="mx-1" onClick={() => highest && setSelectedCat(highest)}>
                 <h3>Highest {s.toUpperCase()}</h3>
                 <CatIcon width={100} height={100} cat={highest} className={`m-0.5 p-1 border rounded-md ${DefaultHoverable} ${highest?.id == selectedCat?.id ? "border-blue-500" : ""}`}/>
             </div>)
