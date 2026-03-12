@@ -1,20 +1,25 @@
-import Image from "next/image";
 import { DefaultInput, DefaultSubMenu } from "../lib/themes";
 import StatUpDown from "./StatUpDown";
-import { useContext, useRef } from "react";
+import { ClipboardEvent, useContext, useRef } from "react";
 import { SelectedCatContext } from "./MewHelper";
 import { Cat, Gender, Sexuality } from "../generated/prisma/client";
 import { FaTrashAlt } from "react-icons/fa";
 import { GetTotalStats } from "../lib/helper";
+import CatImage from "./CatImage";
+import { UploadCatImage } from "../lib/image";
 
 interface CatInfoProps {
-    updateCatList: () => void,
+    updateCatList: (selectCat?: boolean) => Promise<Cat[]>,
 }
 
 export default function CatInfo({updateCatList} : CatInfoProps) {
     const [selectedCat, setSelectedCat] = useContext(SelectedCatContext);
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const formRef = useRef<HTMLFormElement>(null);
+    const imageUploadRef = useRef<HTMLInputElement>(null);
+    const imageDeleteRef = useRef<HTMLButtonElement>(null);
+    const imageRef = useRef<HTMLImageElement>(null);
+    const newImageSrcRef = useRef<HTMLInputElement>(null);
 
     function formChanged() {
         if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -30,14 +35,17 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
 
         const formData = new FormData(formRef.current);
         const data = Object.fromEntries(formData.entries());
+
+        console.log("updating str to " + data['str']);
     
         const newCatData : Cat = {
             id: id,
-            userId: '0',
+            userId: '0', // placeholder
+            imagePath: newImageSrcRef.current?.value ?? selectedCat?.imagePath ?? null,
             name: data['Name'] as string,
             retired: data['Retired'] == 'on',
             gender: data['Gender'] as Gender,
-            sexuality: data['Sexuality'] as Sexuality,
+            sexuality: data['Sexuality'] === "NULL" ? null : data['Sexuality'] as Sexuality,
             str: Number(data['str']),
             dex: Number(data['dex']),
             con: Number(data['con']),
@@ -64,20 +72,90 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
             method:'DELETE'
         })
 
-        updateCatList();
-        setSelectedCat(undefined);
+        updateCatList().then(() => setSelectedCat(undefined));
+    }
+
+    // just return cata data from delete and set to selected cat?
+    async function deleteCatImage() {
+        if (!selectedCat) return;
+        
+        const res = await fetch("/api/cat/image", {
+            method: "DELETE",
+            body: JSON.stringify({catId: selectedCat.id})
+        })
+        const data = await res.json();
+        const cat = data.cat;
+
+        await updateCatList();
+        if (cat) setSelectedCat(cat);
+    }
+
+    function selectCatImage() {
+        if (imageUploadRef.current) {
+            const imgup = imageUploadRef.current;
+            imgup.click();
+        }
+    }
+
+    async function uploadCatImage() {
+        const input = imageUploadRef.current;
+        if (!input?.files?.length || !selectedCat) return;
+        
+        const file = input.files[0];
+
+        const src = await UploadCatImage(file, selectedCat.id);
+        if (newImageSrcRef.current) {
+            newImageSrcRef.current.value = src;
+            pushCatUpdates(selectedCat.id);
+            await updateCatList();
+        }
+    }
+
+    function showImageDeleteButton(visible: boolean) {
+        if (imageDeleteRef.current) {
+            imageDeleteRef.current.hidden = !visible;
+        }
+    }
+
+    async function pasteCallback(event : ClipboardEvent<HTMLFormElement>) {
+        const data = event.clipboardData;
+        if (data) {
+            console.log(data.types);
+            //if (data.types.includes('text/plain')) console.log(data.getData('text/plain'));
+            if (data.types.includes('Files') && selectedCat) {
+                event.stopPropagation();
+
+                const pasteFile = data.files[0];
+                const src = await UploadCatImage(pasteFile, selectedCat.id);
+
+                if (newImageSrcRef.current) {
+                    newImageSrcRef.current.value = src;
+                    pushCatUpdates(selectedCat.id);
+                    updateCatList();
+                }
+            }
+        }
     }
 
     return selectedCat ? (
-    <form key={selectedCat?.id} ref={formRef} onChange={formChanged} onInput={formChanged} className={`p-1 md:p-2 mb-2 rounded ${DefaultSubMenu} flex flex-col md:max-w-150 m-auto`}>    
+    <form onPaste={pasteCallback} key={selectedCat.id} ref={formRef} onChange={formChanged} onInput={formChanged} className={`p-1 md:p-2 mb-2 rounded ${DefaultSubMenu} flex flex-col md:max-w-150 m-auto`}>    
             <div className="flex flex-row">
                 <div className="flex flex-1 flex-col md:flex-row items-center md:items-start">
-                    <Image 
-                        loading="eager"
-                        src="/cat.png" width={200} height={200}
-                        alt={(selectedCat.name ? selectedCat.name : "cat") + "'s portrait"} 
-                        className={`max-w-40 md md:mr-2 border border-black dark:border-white rounded-2xl ${DefaultInput}`}
-                    />
+                    <input ref={imageUploadRef} type="file" accept="image/png, image/jpeg" className="hidden" onChange={uploadCatImage}></input>
+                    <input ref={newImageSrcRef} type="text" className="hidden"></input>
+                    <div onClick={selectCatImage} onMouseEnter={() => showImageDeleteButton(true)} onMouseLeave={() => showImageDeleteButton(false)} className="relative md:mr-2">
+                        <CatImage
+                            cat={selectedCat} width={300} height={200}
+                            alt={(selectedCat.name ? selectedCat.name : "cat") + "'s portrait"}
+                            className={`md border border-black dark:border-white hover:bg-gray-400 cursor-pointer rounded-xl ${DefaultInput}`}
+                        />
+                        {imageRef.current?.src != '/images/cats/cat.png' &&
+                            <button type="button" ref={imageDeleteRef} onClick={(e) => {
+                                e.stopPropagation();
+                                deleteCatImage();
+                            }} className="absolute right-0 bottom-0 z-10 m-2 cursor-pointer hover:text-red-400" hidden={true}><FaTrashAlt/></button>
+                        }
+                    </div>
                     <div className="flex flex-col w-full mt-2">
                         <input name="Name" type="text" placeholder="Name" className={`text-2xl rounded border ${DefaultInput}`} defaultValue={selectedCat.name ?? ""} onChange={formChanged}/>
                         <label>
@@ -92,7 +170,8 @@ export default function CatInfo({updateCatList} : CatInfoProps) {
                             </select>
                         </label>
                         <label>
-                            <select name="Sexuality" className="*:bg-gray-500 cursor-pointer *:cursor-pointer" defaultValue={selectedCat.sexuality ?? "STRAIGHT"} onChange={formChanged}>
+                            <select name="Sexuality" className="*:bg-gray-500 cursor-pointer *:cursor-pointer" defaultValue={selectedCat.sexuality ?? "NULL"} onChange={formChanged}>
+                                <option value="NULL">Unknown</option>
                                 <option value="STRAIGHT">Straight</option>
                                 <option value="GAY">Gay</option>
                             </select>

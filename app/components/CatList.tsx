@@ -7,7 +7,7 @@ import { Cat } from "../generated/prisma/client";
 
 interface CatListProps {
     catList: Cat[],
-    updateCatList: () => Promise<void>,
+    updateCatList: (newCat?: boolean) => Promise<Cat[]>,
 }
 
 export default function CatList({catList, updateCatList} : CatListProps) {
@@ -23,14 +23,9 @@ export default function CatList({catList, updateCatList} : CatListProps) {
         })
     }, [catList, setSelectedCat]);
 
-    function createNewCat() {
-        fetch('/api/cat', {
-            method: 'POST'
-        }).then(() => {
-            updateCatList().then(() => {
-                selectCat(catList.length - 1);
-            })
-        });
+    async function createNewCat() {
+        await fetch('/api/cat', { method: 'POST' });
+        await updateCatList(true);
     }
 
     return <>

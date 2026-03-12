@@ -35,7 +35,7 @@ export default function CatHighest({catList} : CatHelperProps) {
 
             return (<div key={s} className="mx-1" onClick={() => highest && setSelectedCat(highest)}>
                 <h3>Highest {s.toUpperCase()}</h3>
-                <CatIcon cat={highest} className={`w-20 m-0.5 p-1 border rounded-md ${DefaultHoverable} ${highest?.id == selectedCat?.id ? "border-blue-500" : ""}`}/>
+                <CatIcon width={100} height={100} cat={highest} className={`m-0.5 p-1 border rounded-md ${DefaultHoverable} ${highest?.id == selectedCat?.id ? "border-blue-500" : ""}`}/>
             </div>)
         })}
     </div>

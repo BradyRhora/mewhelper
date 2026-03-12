@@ -33,6 +33,7 @@ model Cat {
   userId    String
   user      User     @relation(fields: [userId], references: [id])
 
+  imagePath String?
   name      String?
   gender    Gender?
   sexuality Sexuality?

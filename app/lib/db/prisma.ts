@@ -42,8 +42,16 @@ export async function CatExists(id: string) {
     return await prisma.cat.count({where: {id: id}}) > 0;
 }
 
+export async function CatExistsAndOwnedBy(catId: string, userId: string) {
+    return await prisma.cat.count({where:{id:catId,userId:userId}}) > 0;
+}
+
 export async function GetCat(id: string) {
     return await prisma.cat.findFirst({where: {id: id}});
+}
+
+export async function GetCatOwner(id: string) {
+    return (await GetCat(id))?.userId;
 }
 
 export async function CreateCat(userId: string) {
