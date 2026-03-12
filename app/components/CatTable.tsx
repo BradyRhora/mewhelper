@@ -5,10 +5,11 @@ import { FaSortDown, FaSortUp } from "react-icons/fa";
 import { SelectedCatContext } from "./MewHelper";
 
 interface TableProps {
-    catList: Cat[]
+    catList: Cat[],
+    updateCatList: (newCat?: boolean) => Promise<Cat[]>,
 }
 
-export default function CatTable({catList} : TableProps) {
+export default function CatTable({catList, updateCatList} : TableProps) {
     const stats : (keyof Cat)[] = ["str", "dex", "con", "int", "spd", "cha", "luk"];
     const [sortStat, setSortStat] = useState<keyof Cat | "total">("total");
     const [sortDirection, setSortDirection] = useState(true); // False -> Asc., True -> Desc.
@@ -37,6 +38,15 @@ export default function CatTable({catList} : TableProps) {
     function changeSort(stat: keyof Cat | "total") {
         if (sortStat == stat) setSortDirection(!sortDirection);
         else setSortStat(stat);
+    }
+
+    async function toggleRetired(catId : string) {
+        await fetch('/api/cat/retire', {
+            method: 'PUT',
+            body: JSON.stringify({id: catId})
+        });
+
+        await updateCatList();
     }
 
     const sortArrow = sortDirection ? <FaSortDown/> : <FaSortUp/>
@@ -94,9 +104,13 @@ export default function CatTable({catList} : TableProps) {
                 return (
                     <tr onClick={() => {setSelectedCat(cat)}} key={cat.id} className={`md:*:p-1 text-center *:border cursor-pointer ${selectedCat?.id == cat.id ? "*:bg-blue-400" : ""}`}>
                         <td>{cat.name}</td>
-                        <td>{cat.retired ? "✔" : "❌"}</td>
+                        <td onClick={(e) => {
+                            e.stopPropagation();
+                            toggleRetired(cat.id)
+                        }}
+                        className={`cursor-pointer ${selectedCat?.id == cat.id ? 'hover:bg-blue-300' :'hover:bg-gray-600'}`}>{cat.retired ? "✔" : "❌"}</td>
                         <td>{cat.gender?.charAt(0)}</td>
-                        <td>{cat.sexuality?.charAt(0)}</td>
+                        <td>{cat.sexuality ? cat.sexuality.charAt(0) : '?'}</td>
                         <td>{GetTotalStats(cat)}</td>
                         {
                         stats.map((stat) => {
